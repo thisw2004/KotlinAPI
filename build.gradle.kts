@@ -43,6 +43,7 @@ dependencies {
 
     // Database
     implementation("org.postgresql:postgresql:$postgres_version")
+    implementation("org.postgresql:postgresql:42.2.23")
 }
 
 java {
