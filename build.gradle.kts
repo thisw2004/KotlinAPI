@@ -31,6 +31,14 @@ dependencies {
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm:$ktor_version")
     implementation("io.ktor:ktor-server-swagger-jvm:$ktor_version")
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
+    implementation("io.ktor:ktor-server-openapi:$ktor_version")
+    implementation("io.ktor:ktor-server-openapi:$ktor_version")
+    implementation("io.ktor:ktor-server-swagger:$ktor_version")
+    implementation("io.ktor:ktor-server-core:$ktor_version")
+    implementation("io.ktor:ktor-server-netty:$ktor_version")
+    implementation("io.ktor:ktor-server-swagger:2.3.0")
+    implementation("io.ktor:ktor-server-openapi:$ktor_version")
+
 
     // Logging
     implementation("ch.qos.logback:logback-classic:$logback_version")

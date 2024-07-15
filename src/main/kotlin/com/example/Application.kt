@@ -1,21 +1,34 @@
 package com.example
 
-import com.example.models.*
+import com.example.models.Users.email
+import com.example.plugins.UserService.Users.name
+import com.example.plugins.configureSwagger
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
-import com.example.plugins.*
-import com.example.routes.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
 import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.routing.*
 import io.ktor.server.plugins.swagger.*
+import io.ktor.server.routing.*
 import io.ktor.server.response.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.javatime.datetime
 import kotlin.random.Random
+import java.time.LocalDateTime
+import io.ktor.server.plugins.openapi.*
+import io.ktor.server.application.*
+import io.ktor.server.routing.*
+import io.ktor.server.plugins.openapi.*
+import io.ktor.server.plugins.swagger.*
+//import io.swagger.v3.oas.models.info.Info
+import io.ktor.server.application.*
+import io.ktor.server.plugins.swagger.*
+import io.ktor.server.routing.*
+import io.ktor.server.plugins.openapi.*
+//import jdk.jpackage.internal.Log.info
 
 fun main() {
     val port = System.getenv("PORT")?.toInt() ?: 8080
@@ -47,23 +60,37 @@ fun Application.configureAuthentication() {
 
 fun Application.configureSwagger() {
     routing {
-        swaggerUI(path = "swagger", swaggerFile = "openapi/documentation.yaml")
+//
+        swaggerUI(path = "swagger", swaggerFile = "openapi/documentation.yaml") {
+            version = "4.15.5"
+        }
     }
 }
 
 fun Application.configureRouting() {
     routing {
         get("/") {
-            call.respondText("Hello World!")
+            call.respondText("Default endpoint from MyRent API.")
+        }
+        get("/seed-database") {
+            seedDatabase()
+            call.respondText("Database seeded successfully")
+            //TODO: add error in case something goes wrong
         }
         authenticate {
-            userRoutes()
+            // userRoutes()
             // Uncomment these as you implement them
             // vehicleRoutes()
             // routeRoutes()
             // photoRoutes()
-            // drivingBehaviorRoutes()
         }
+    }
+}
+
+
+fun Application.configureOpenAPI() {
+    routing {
+        swaggerUI(path = "swagger", swaggerFile = "openapi/documentation.yaml")
     }
 }
 
@@ -84,55 +111,93 @@ fun Application.configureDatabases() {
         println("Database connection failed: ${e.message}")
     }
 
-    transaction(database) {
-        SchemaUtils.create(Users, Vehicles, Routes, Photos, DrivingBehaviors)
-        seedDatabase()
+    transaction {
+        SchemaUtils.createMissingTablesAndColumns(Users, Vehicles, Photos)
     }
 }
 
 fun seedDatabase() {
     transaction {
-        try {
-            // Insert random data into the tables
-            repeat(10) {
-                Users.insert {
-                    it[name] = "User ${Random.nextInt(1, 100)}"
-                    it[email] = "user${Random.nextInt(1, 100)}@example.com"
-                    // Set other fields as needed
-                }
-            }
-            repeat(5) {
-                Vehicles.insert {
-                    it[make] = "Make ${Random.nextInt(1, 10)}"
-                    it[model] = "Model ${Random.nextInt(1, 10)}"
-                    // Set other fields as needed
-                }
-            }
-            // Seed other tables with random data as needed
-        } catch (e: Exception) {
-            rollback()
-            println("Data seeding failed: ${e.message}")
+        // Clear existing data
+
+
+
+        // Seed Users
+        val userIds = List(10) { index ->
+            Users.insert {
+                it[username] = "user${index + 1}"
+                it[pw] = "password${index + 1}"
+                it[mail] = "user${index + 1}@example.com"
+            } get Users.id
         }
+
+        // Seed Vehicles
+        val vehicleIds = List(20) { index ->
+            Vehicles.insert {
+                it[rented] = Random.nextBoolean()
+                it[userId] = userIds.random()
+                it[brand] = listOf("Toyota", "Honda", "Ford", "BMW", "Mercedes").random()
+                it[model] = "Model${index + 1}"
+                it[buildYear] = Random.nextInt(2000, 2024)
+                it[kenteken] = "ABC${Random.nextInt(100, 999)}"
+                it[brandstof] = listOf("Petrol", "Diesel", "Electric", "Hybrid").random()
+                it[verbruik] = Random.nextInt(5, 20)
+                it[kmStand] = Random.nextInt(0, 200000)
+                it[location] = listOf("New York", "Los Angeles", "Chicago", "Houston", "Phoenix").random()
+            } get Vehicles.id
+        }
+
+        // Seed Photos
+        val photoIds = vehicleIds.map { vehicleId ->
+            Photos.insert {
+                it[photoUrl] = "https://example.com/vehicle$vehicleId.jpg"
+                it[carId] = vehicleId
+            } get Photos.id
+        }
+
+        // Update vehicles with photo ids
+        vehicleIds.zip(photoIds).forEach { (vehicleId, photoId) ->
+            Vehicles.update({ Vehicles.id eq vehicleId }) {
+                it[Vehicles.photoId] = photoId
+            }
+        }
+
+
     }
 }
 
-// Define your table objects here
+// Table definitions
 object Users : Table() {
     val id = integer("id").autoIncrement()
-    val name = varchar("name", 50)
-    val email = varchar("email", 100)
-    // Define other columns as needed
+    val username = varchar("username", 255)
+    val pw = varchar("pw", 255)
+    val mail = varchar("mail", 255)
 
     override val primaryKey = PrimaryKey(id)
 }
 
 object Vehicles : Table() {
     val id = integer("id").autoIncrement()
-    val make = varchar("make", 50)
-    val model = varchar("model", 50)
-    // Define other columns as needed
+    val rented = bool("rented")
+    val userId = (integer("user_id").references(Users.id)).nullable()
+    val brand = varchar("brand", 255)
+    val model = varchar("model", 255)
+    val buildYear = integer("buildyear")
+    val kenteken = varchar("kenteken", 255)
+    val brandstof = varchar("brandstof", 255)
+    val verbruik = integer("verbruik")
+    val kmStand = integer("km_stand")
+    val photoId = (integer("photo_id").references(Photos.id)).nullable()
+    val location = varchar("location", 255)
 
     override val primaryKey = PrimaryKey(id)
 }
 
-// Define other table objects (Routes, Photos, DrivingBehaviors) similarly
+object Photos : Table() {
+    val id = integer("id").autoIncrement()
+    val photoUrl = varchar("photo_url", 255)
+    val carId = (integer("car_id").references(Vehicles.id)).nullable()
+
+    override val primaryKey = PrimaryKey(id)
+}
+
