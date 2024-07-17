@@ -1,6 +1,7 @@
 package com.example
 
 import com.example.plugins.configureSwagger
+import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
@@ -54,9 +55,16 @@ fun Application.configureRouting() {
             call.respondText("Default endpoint from MyRent API.")
         }
         get("/seed-database") {
-            seedDatabase()
-            call.respondText("Database seeded successfully")
-            //TODO: add error in case something goes wrong
+            try {
+                seedDatabase()
+                call.respondText("Database seeded successfully", status = HttpStatusCode.OK)
+            } catch (e: Exception) {
+                application.log.error("Error seeding database", e)
+                call.respondText(
+                    "Error seeding database: ${e.message}",
+                    status = HttpStatusCode.InternalServerError
+                )
+            }
         }
         authenticate {
             // userRoutes()
@@ -111,49 +119,71 @@ fun testDatabaseConnection(database: Database) {
 }
 
 fun seedDatabase() {
+    val names = listOf("Emma", "Liam", "Olivia", "Noah", "Ava", "Ethan", "Sophia", "Mason", "Isabella", "William",
+        "Mia", "James", "Charlotte", "Benjamin", "Amelia", "Lucas", "Harper", "Henry", "Evelyn", "Alexander")
+    val surnames = listOf("Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez",
+        "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin")
+    val domains = listOf("gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com")
+
     transaction {
         // Seed Users
-        val userIds = List(10) { index ->
+        val newUserIds = names.map { name ->
+            val surname = surnames.random()
+            var username: String
+            var email: String
+
+            // Ensure username and email are unique
+            do {
+                username = "${name.toLowerCase()}${Random.nextInt(100, 9999)}"
+                email = "${name.toLowerCase()}.${surname.toLowerCase()}${Random.nextInt(100, 9999)}@${domains.random()}"
+            } while (Users.select { (Users.username eq username) or (Users.email eq email) }.count() > 0)
+
             Users.insert {
-                it[username] = "user${index + 1}"
-                val (salt, hash) = hashPassword("password${index + 1}")
+                it[this.username] = username
+                val (salt, hash) = hashPassword(UUID.randomUUID().toString()) // Use UUID for unique passwords
                 it[password] = "$salt:$hash"
-                it[email] = "user${index + 1}@example.com"
+                it[this.email] = email
             } get Users.id
         }
 
-        // Seed Vehicles without photo_id
-        val vehicleIds = List(20) { index ->
+        // Seed Vehicles
+        val vehicleBrands = listOf("Toyota", "Honda", "Ford", "BMW", "Mercedes", "Audi", "Volkswagen", "Nissan", "Hyundai", "Kia")
+        val vehicleModels = listOf("Sedan", "SUV", "Hatchback", "Coupe", "Convertible", "Pickup", "Van", "Wagon", "Crossover", "Sports Car")
+
+        val newVehicleIds = List(30) {
+            var kenteken: String
+            do {
+                kenteken = "${('A'..'Z').random()}${('A'..'Z').random()}${Random.nextInt(10, 99)}-${('A'..'Z').random()}${('A'..'Z').random()}${('A'..'Z').random()}"
+            } while (Vehicles.select { Vehicles.kenteken eq kenteken }.count() > 0)
+
             Vehicles.insert {
                 it[rented] = Random.nextBoolean()
-                it[userId] = userIds.random()
-                it[brand] = listOf("Toyota", "Honda", "Ford", "BMW", "Mercedes").random()
-                it[model] = "Model${index + 1}"
-                it[buildyear] = Random.nextInt(2000, 2024)
-                it[kenteken] = "ABC${Random.nextInt(100, 999)}"
+                it[userId] = newUserIds.random()
+                it[brand] = vehicleBrands.random()
+                it[model] = "${vehicleModels.random()} ${Random.nextInt(1, 5)}"
+                it[buildyear] = Random.nextInt(2010, 2024)
+                it[this.kenteken] = kenteken
                 it[brandstof] = listOf("Petrol", "Diesel", "Electric", "Hybrid").random()
-                it[verbruik] = Random.nextInt(5, 20)
-                it[kmStand] = Random.nextInt(0, 200000)
-                it[location] = listOf("New York", "Los Angeles", "Chicago", "Houston", "Phoenix").random()
+                it[verbruik] = Random.nextInt(3, 20)
+                it[kmStand] = Random.nextInt(0, 150000)
+                it[location] = listOf("Amsterdam", "Rotterdam", "The Hague", "Utrecht", "Eindhoven", "Groningen", "Tilburg", "Almere", "Breda", "Nijmegen").random()
             } get Vehicles.id
         }
 
-        // Seed Photos
-        val photoIds = vehicleIds.map { vehicleId ->
-            Photos.insert {
-                it[photoUrl] = "https://example.com/vehicle$vehicleId.jpg"
+        // Seed Photos and update Vehicles
+        newVehicleIds.forEach { vehicleId ->
+            val photoId = Photos.insert {
+                it[photoUrl] = "https://example.com/vehicle${vehicleId}_${Random.nextInt(1000, 9999)}.jpg"
                 it[carId] = vehicleId
             } get Photos.id
-        }
 
-        // Update vehicles with photo ids
-        vehicleIds.zip(photoIds).forEach { (vehicleId, photoId) ->
             Vehicles.update({ Vehicles.id eq vehicleId }) {
                 it[Vehicles.photoId] = photoId
             }
         }
+
+        println("Added ${newUserIds.size} new users and ${newVehicleIds.size} new vehicles to the database.")
     }
-    println("Database seeded successfully")
 }
 
 fun hashPassword(password: String): Pair<String, String> {
