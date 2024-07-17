@@ -1,23 +1,33 @@
 openapi: "3.0.3"
 info:
-  title: "Application API"
-  description: "Application API"
+  title: "MyRent API"
   version: "1.0.0"
+  description: "API for MyRent application"
 servers:
-  - url: "http://0.0.0.0:8080"
+  - url: "http://localhost:8080"
+    description: "Development server"
 paths:
   /:
     get:
-      description: "Hello World!"
+      summary: "Root endpoint"
       responses:
-        "200":
-          description: "OK"
+        '200':
+          description: "Successful response"
           content:
             text/plain:
               schema:
-                type: "string"
-              examples:
-                Example#1:
-                  value: "Hello World!"
+                type: string
+  /seed-database:
+    get:
+      summary: "Seed the database"
+      responses:
+        '200':
+          description: "Database seeded successfully"
+        '500':
+          description: "Error seeding database"
 components:
-  schemas: { }
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

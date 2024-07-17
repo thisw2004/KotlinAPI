@@ -1,6 +1,5 @@
 package com.example
 
-import com.example.plugins.configureSwagger
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -14,12 +13,29 @@ import io.ktor.server.response.*
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import kotlin.random.Random
-//import io.swagger.v3.oas.models.info.Info
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.*
-
-//import jdk.jpackage.internal.Log.info
+import io.ktor.server.plugins.openapi.*
+import io.ktor.server.plugins.swagger.*
+import org.jetbrains.exposed.sql.javatime.* // Add this import
+import java.time.LocalDateTime // Add this import
+import io.ktor.server.application.*
+import io.ktor.server.routing.*
+import io.ktor.server.plugins.openapi.*
+import io.ktor.server.plugins.swagger.*
+//import io.swagger.v3.oas.models.OpenAPI
+//import io.swagger.v3.oas.models.info.Info
+//import io.swagger.v3.oas.models.servers.Server
+//import io.swagger.v3.oas.models.security.SecurityScheme
+import io.ktor.server.application.*
+import io.ktor.server.routing.*
+import io.ktor.server.plugins.openapi.*
+import io.ktor.server.plugins.swagger.*
+import io.swagger.v3.oas.models.OpenAPI
+import io.swagger.v3.oas.models.info.Info
+import io.swagger.v3.oas.models.servers.Server
+import io.swagger.v3.oas.models.security.SecurityScheme
 
 fun main() {
     val port = System.getenv("PORT")?.toInt() ?: 8080
@@ -30,7 +46,7 @@ fun main() {
 fun Application.module() {
     configureSerialization()
     configureAuthentication()
-    configureSwagger()
+    configureOpenAPI()
     configureDatabases()
     configureRouting()
 }
@@ -46,6 +62,13 @@ fun Application.configureAuthentication() {
         jwt {
             // Configure your JWT authentication here
         }
+    }
+}
+
+fun Application.configureOpenAPI() {
+    routing {
+        openAPI(path = "openapi", swaggerFile = "openapi/documentation.yaml")
+        swaggerUI(path = "swagger-ui", swaggerFile = "openapi/documentation.yaml")
     }
 }
 
@@ -75,7 +98,6 @@ fun Application.configureRouting() {
         }
     }
 }
-
 
 fun Application.configureDatabases() {
     val database = Database.connect(
@@ -143,6 +165,7 @@ fun seedDatabase() {
                 val (salt, hash) = hashPassword(UUID.randomUUID().toString()) // Use UUID for unique passwords
                 it[password] = "$salt:$hash"
                 it[this.email] = email
+                it[createdAt] = LocalDateTime.now()
             } get Users.id
         }
 
@@ -167,6 +190,7 @@ fun seedDatabase() {
                 it[verbruik] = Random.nextInt(3, 20)
                 it[kmStand] = Random.nextInt(0, 150000)
                 it[location] = listOf("Amsterdam", "Rotterdam", "The Hague", "Utrecht", "Eindhoven", "Groningen", "Tilburg", "Almere", "Breda", "Nijmegen").random()
+                it[createdAt] = LocalDateTime.now()
             } get Vehicles.id
         }
 
@@ -175,6 +199,7 @@ fun seedDatabase() {
             val photoId = Photos.insert {
                 it[photoUrl] = "https://example.com/vehicle${vehicleId}_${Random.nextInt(1000, 9999)}.jpg"
                 it[carId] = vehicleId
+                it[createdAt] = LocalDateTime.now()
             } get Photos.id
 
             Vehicles.update({ Vehicles.id eq vehicleId }) {
@@ -212,6 +237,7 @@ object Users : Table("users") {
     val username = varchar("username", 255)
     val password = varchar("password", 255)
     val email = varchar("email", 255)
+    val createdAt = datetime("created_at").defaultExpression(CurrentDateTime)
 
     override val primaryKey = PrimaryKey(id)
 }
@@ -227,8 +253,9 @@ object Vehicles : Table("vehicles") {
     val brandstof = varchar("brandstof", 255)
     val verbruik = integer("verbruik")
     val kmStand = integer("km_stand")
-    val photoId = integer("photo_id").references(Photos.id).nullable() // Make this nullable
+    val photoId = integer("photo_id").references(Photos.id).nullable()
     val location = varchar("location", 255)
+    val createdAt = datetime("created_at").defaultExpression(CurrentDateTime)
 
     override val primaryKey = PrimaryKey(id)
 }
@@ -237,7 +264,7 @@ object Photos : Table("photos") {
     val id = integer("id").autoIncrement()
     val photoUrl = varchar("photo_url", 255)
     val carId = integer("car_id").references(Vehicles.id)
+    val createdAt = datetime("created_at").defaultExpression(CurrentDateTime)
 
     override val primaryKey = PrimaryKey(id)
 }
-
