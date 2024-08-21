@@ -1,5 +1,10 @@
 package com.example
 
+import com.auth0.jwt.JWT
+import com.auth0.jwt.algorithms.Algorithm
+import com.example.routes.loginRoute
+import com.example.routes.registerRoute
+/*import com.example.routes.userRoutes*/
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -57,10 +62,25 @@ fun Application.configureSerialization() {
     }
 }
 
+
 fun Application.configureAuthentication() {
+    val secret = System.getenv("JWT_SECRET") ?: "your-secret-key" // Use environment variable in production
+    val issuer = "http://0.0.0.0:8080/"
+    val audience = "http://0.0.0.0:8080/hello"
+
     authentication {
         jwt {
-            // Configure your JWT authentication here
+            realm = "Ktor Server"
+            verifier(
+                JWT
+                    .require(Algorithm.HMAC256(secret))
+                    .withAudience(audience)
+                    .withIssuer(issuer)
+                    .build()
+            )
+            validate { credential ->
+                if (credential.payload.audience.contains(audience)) JWTPrincipal(credential.payload) else null
+            }
         }
     }
 }
@@ -74,6 +94,7 @@ fun Application.configureOpenAPI() {
 
 fun Application.configureRouting() {
     routing {
+        //always accessible routes
         get("/") {
             call.respondText("Default endpoint from MyRent API.")
         }
@@ -89,9 +110,12 @@ fun Application.configureRouting() {
                 )
             }
         }
-        authenticate {
-            // userRoutes()
-            // Uncomment these as you implement them
+
+        loginRoute() //auth routes
+        registerRoute()
+        authenticate { //routes accessible after register/login
+
+
             // vehicleRoutes()
             // routeRoutes()
             // photoRoutes()
@@ -156,8 +180,8 @@ fun seedDatabase() {
 
             // Ensure username and email are unique
             do {
-                username = "${name.toLowerCase()}${Random.nextInt(100, 9999)}"
-                email = "${name.toLowerCase()}.${surname.toLowerCase()}${Random.nextInt(100, 9999)}@${domains.random()}"
+                username = "${name.lowercase(Locale.getDefault())}${Random.nextInt(100, 9999)}"
+                email = "${name.lowercase(Locale.getDefault())}.${surname.lowercase(Locale.getDefault())}${Random.nextInt(100, 9999)}@${domains.random()}"
             } while (Users.select { (Users.username eq username) or (Users.email eq email) }.count() > 0)
 
             Users.insert {

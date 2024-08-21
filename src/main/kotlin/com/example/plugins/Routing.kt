@@ -7,7 +7,9 @@ import com.example.routes.*   //o.a userRoutes etc.
 
 fun Application.configureRouting() {
     routing {
-        userRoutes()
+        loginRoute()
+        registerRoute()
+        //userRoutes()
 //        vehicleRoutes()
 //        routeRoutes()
 //        photoRoutes()
