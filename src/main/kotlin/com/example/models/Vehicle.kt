@@ -19,3 +19,5 @@ object Vehicles : Table() {
 
     override val primaryKey = PrimaryKey(id)
 }
+//TODO: make sure the vehicles in the db are only linked to the user id of the current logged in user if the vehicle is verhuurd
+//TODO: otherwise the userid in the vehicle should be empty or null or something.

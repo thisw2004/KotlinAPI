@@ -10,6 +10,15 @@ import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
+import io.ktor.http.*
+import io.ktor.server.application.*
+import io.ktor.server.auth.*
+import io.ktor.server.auth.jwt.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.transactions.transaction
 
 @Serializable
 data class VehicleResponse(
@@ -29,6 +38,8 @@ data class VehicleResponse(
 
 fun Route.vehicleRoutes() {
     getVehiclesRoute()
+    getMyRentedVehiclesRoute()
+
 }
 
 fun Route.getVehiclesRoute() {
@@ -75,6 +86,59 @@ fun Route.getVehiclesRoute() {
             } catch (e: Exception) {
                 call.application.log.error("Error in get all vehicles route", e)
                 call.respond(HttpStatusCode.InternalServerError, "An error occurred while fetching vehicles: ${e.message}")
+            }
+        }
+    }
+}
+
+
+
+fun Route.getMyRentedVehiclesRoute() {
+    authenticate {
+        get("/vehicles/myrentedvehicles") {
+            try {
+                call.application.log.info("Entering /vehicles/rented route")
+
+                val principal = call.principal<JWTPrincipal>()
+                val userId = principal?.getClaim("userId", String::class)?.toIntOrNull()
+
+                call.application.log.info("User ID from token: $userId")
+
+                if (userId == null) {
+                    call.application.log.warn("Invalid token: userId is null")
+                    call.respond(HttpStatusCode.Unauthorized, "Invalid token")
+                    return@get
+                }
+
+                call.application.log.info("Querying database for rented vehicles for user $userId")
+                val rentedVehicles = transaction {
+                    Vehicles.select {
+                        (Vehicles.userId eq userId) and (Vehicles.rented eq true)
+                    }.map { row ->
+                        VehicleResponse(
+                            id = row[Vehicles.id],
+                            rented = row[Vehicles.rented],
+                            userId = row[Vehicles.userId],
+                            brand = row[Vehicles.brand],
+                            model = row[Vehicles.model],
+                            buildYear = row[Vehicles.buildYear],
+                            kenteken = row[Vehicles.kenteken],
+                            brandstof = row[Vehicles.brandstof],
+                            verbruik = row[Vehicles.verbruik],
+                            kmstand = row[Vehicles.kmstand],
+                            photoId = row[Vehicles.photoId],
+                            location = row[Vehicles.location]
+                        )
+                    }
+                }
+
+                call.application.log.info("Retrieved ${rentedVehicles.size} rented vehicles for user $userId")
+
+                call.respond(HttpStatusCode.OK, rentedVehicles)
+                call.application.log.info("Response sent successfully")
+            } catch (e: Exception) {
+                call.application.log.error("Error in get rented vehicles route", e)
+                call.respond(HttpStatusCode.InternalServerError, "An error occurred while fetching rented vehicles: ${e.message}")
             }
         }
     }
