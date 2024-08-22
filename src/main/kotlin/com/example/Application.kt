@@ -4,6 +4,7 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.example.routes.loginRoute
 import com.example.routes.registerRoute
+import com.example.routes.vehicleRoutes
 /*import com.example.routes.userRoutes*/
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -49,6 +50,7 @@ fun main() {
 }
 
 fun Application.module() {
+
     configureSerialization()
     configureAuthentication()
     configureOpenAPI()
@@ -115,10 +117,8 @@ fun Application.configureRouting() {
         registerRoute()
         authenticate { //routes accessible after register/login
 
+            vehicleRoutes()
 
-            // vehicleRoutes()
-            // routeRoutes()
-            // photoRoutes()
         }
     }
 }

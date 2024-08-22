@@ -81,11 +81,7 @@ fun Route.registerRoute() {
             val (salt, hash) = hashPassword(registration.password)
             val hashedPassword = "${Base64.getEncoder().encodeToString(salt)}:${Base64.getEncoder().encodeToString(hash)}"
 
-            // Insert new user
-            // Insert new user
 
-
-// Insert new user
                     transaction {
                         Users.insert { stmt ->
                             stmt[Users.username] = registration.username
@@ -102,6 +98,8 @@ fun Route.registerRoute() {
         }
     }
 }
+
+
 
 fun createJwtToken(userId: Int): String {
     val secret = System.getenv("JWT_SECRET") ?: "your-secret-key" // Use environment variable in production

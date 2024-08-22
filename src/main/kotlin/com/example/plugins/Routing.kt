@@ -9,10 +9,9 @@ fun Application.configureRouting() {
     routing {
         loginRoute()
         registerRoute()
-        //userRoutes()
-//        vehicleRoutes()
-//        routeRoutes()
-//        photoRoutes()
-//        drivingBehaviorRoutes()
+        //after authentication
+        vehicleRoutes()
+
+
     }
 }
