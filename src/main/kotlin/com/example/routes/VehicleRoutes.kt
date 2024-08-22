@@ -1,5 +1,6 @@
 package com.example.routes
 
+import com.example.Vehicles.rented
 import com.example.models.Vehicles
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -8,7 +9,6 @@ import io.ktor.server.auth.jwt.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
-import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -17,9 +17,8 @@ import io.ktor.server.auth.jwt.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 
 @Serializable
@@ -51,11 +50,18 @@ data class AddCarRequest(
     val location: String
 )
 
+@Serializable
+data class HireCarRequest(
+    val carId: Int
+)
+
 
 fun Route.vehicleRoutes() {
     getVehiclesRoute()
     getMyRentedVehiclesRoute()
     addCarRoute()
+    hireCarRoute()
+
 
 }
 
@@ -195,6 +201,54 @@ fun Route.addCarRoute() {
             } catch (e: Exception) {
                 call.application.log.error("Error in add car route", e)
                 call.respond(HttpStatusCode.InternalServerError, "An error occurred while adding the car: ${e.message}")
+            }
+        }
+    }
+}
+
+fun Route.hireCarRoute() {
+    authenticate {
+        post("/vehicles/hire") {
+            try {
+                val principal = call.principal<JWTPrincipal>()
+                val userId = principal?.getClaim("userId", String::class)?.toIntOrNull()
+
+                if (userId == null) {
+                    call.respond(HttpStatusCode.Unauthorized, "Invalid token")
+                    return@post
+                }
+
+                val request = call.receive<HireCarRequest>()
+
+                val result = transaction {
+                    val car = Vehicles.select { Vehicles.id eq request.carId }.singleOrNull()
+
+                    if (car == null) {
+                        return@transaction "Car not found"
+                    }
+
+                    if (car[Vehicles.rented]) {
+                        return@transaction "Car is already rented"
+                    }
+
+                    Vehicles.update({ Vehicles.id eq request.carId }) {
+                        it[rented] = true
+                        it[Vehicles.userId] = userId
+                    }
+
+                    "Car hired successfully"
+                }
+
+                when (result) {
+                    "Car hired successfully" -> call.respond(HttpStatusCode.OK, mapOf("message" to result))
+                    "Car not found" -> call.respond(HttpStatusCode.NotFound, mapOf("error" to result))
+                    "Car is already rented" -> call.respond(HttpStatusCode.Conflict, mapOf("error" to result))
+                    else -> call.respond(HttpStatusCode.InternalServerError, mapOf("error" to "An unexpected error occurred"))
+                }
+
+            } catch (e: Exception) {
+                call.application.log.error("Error in hire car route", e)
+                call.respond(HttpStatusCode.InternalServerError, "An error occurred while hiring the car: ${e.message}")
             }
         }
     }
