@@ -62,7 +62,6 @@ fun Route.vehicleRoutes() {
     addCarRoute()
     hireCarRoute()
 
-
 }
 
 fun Route.getVehiclesRoute() {
