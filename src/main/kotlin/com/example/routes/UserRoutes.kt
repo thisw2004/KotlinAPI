@@ -67,13 +67,23 @@ fun Route.registerRoute() {
         try {
             val registration = call.receive<RegistrationRequest>()
 
-            // Check if user already exists
-            val existingUser = transaction {
+            // Check if username already exists
+            val existingUserByUsername = transaction {
                 Users.select { Users.username eq registration.username }.singleOrNull()
             }
 
-            if (existingUser != null) {
+            if (existingUserByUsername != null) {
                 call.respond(HttpStatusCode.Conflict, "Username already exists")
+                return@post
+            }
+
+            // Check if email already exists
+            val existingUserByEmail = transaction {
+                Users.select { Users.email eq registration.email }.singleOrNull()
+            }
+
+            if (existingUserByEmail != null) {
+                call.respond(HttpStatusCode.Conflict, "Email already exists")
                 return@post
             }
 
@@ -81,15 +91,15 @@ fun Route.registerRoute() {
             val (salt, hash) = hashPassword(registration.password)
             val hashedPassword = "${Base64.getEncoder().encodeToString(salt)}:${Base64.getEncoder().encodeToString(hash)}"
 
-
-                    transaction {
-                        Users.insert { stmt ->
-                            stmt[Users.username] = registration.username
-                            stmt[Users.password] = hashedPassword
-                            stmt[Users.email] = registration.email
-                            stmt[Users.createdAt] = LocalDateTime.now()
-                        }
-                    }
+            // Insert the new user
+            transaction {
+                Users.insert { stmt ->
+                    stmt[Users.username] = registration.username
+                    stmt[Users.password] = hashedPassword
+                    stmt[Users.email] = registration.email
+                    stmt[Users.createdAt] = LocalDateTime.now()
+                }
+            }
 
             call.respond(HttpStatusCode.Created, "User registered successfully")
         } catch (e: Exception) {
@@ -98,6 +108,7 @@ fun Route.registerRoute() {
         }
     }
 }
+
 
 
 
