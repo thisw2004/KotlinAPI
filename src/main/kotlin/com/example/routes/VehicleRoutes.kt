@@ -52,6 +52,7 @@ fun Route.vehicleRoutes() {
     getMyRentedVehiclesRoute()
     addCarRoute()
     hireCarRoute()
+    getAvailableVehiclesRoute()
     //getMyHiredVehiclesRoute()
 }
 
@@ -241,3 +242,53 @@ fun Route.hireCarRoute() {
         }
     }
 }
+
+fun Route.getAvailableVehiclesRoute() {
+    authenticate {
+        get("/vehicles/available") {
+            try {
+                call.application.log.info("Entering /vehicles/available route")
+
+                val principal = call.principal<JWTPrincipal>()
+                val userId = principal?.getClaim("userId", String::class)?.toIntOrNull()
+
+                if (userId == null) {
+                    call.application.log.warn("Invalid token: userId is null")
+                    call.respond(HttpStatusCode.Unauthorized, "Invalid token")
+                    return@get
+                }
+
+                call.application.log.info("Querying database for available vehicles")
+                val availableVehicles = transaction {
+                    Vehicles.select {
+                        Vehicles.rented eq false
+                    }.map { row ->
+                        VehicleResponse(
+                            id = row[Vehicles.id],
+                            rented = row[Vehicles.rented],
+                            userId = row[Vehicles.userId],
+                            brand = row[Vehicles.brand],
+                            model = row[Vehicles.model],
+                            buildYear = row[Vehicles.buildYear],
+                            kenteken = row[Vehicles.kenteken],
+                            brandstof = row[Vehicles.brandstof],
+                            verbruik = row[Vehicles.verbruik],
+                            kmstand = row[Vehicles.kmstand],
+                            photoId = row[Vehicles.photoId],
+                            location = row[Vehicles.location]
+                        )
+                    }
+                }
+
+                call.application.log.info("Retrieved ${availableVehicles.size} available vehicles from database")
+
+                call.respond(HttpStatusCode.OK, availableVehicles)
+                call.application.log.info("Response sent successfully")
+            } catch (e: Exception) {
+                call.application.log.error("Error in get available vehicles route", e)
+                call.respond(HttpStatusCode.InternalServerError, "An error occurred while fetching available vehicles: ${e.message}")
+            }
+        }
+    }
+}
+
