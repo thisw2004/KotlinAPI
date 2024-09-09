@@ -109,9 +109,6 @@ fun Route.registerRoute() {
     }
 }
 
-
-
-
 fun createJwtToken(userId: Int): String {
     val secret = System.getenv("JWT_SECRET") ?: "your-secret-key" // Use environment variable in production
     val issuer = "http://0.0.0.0:8080/"

@@ -5,7 +5,6 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.example.routes.loginRoute
 import com.example.routes.registerRoute
 import com.example.routes.vehicleRoutes
-/*import com.example.routes.userRoutes*/
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -24,20 +23,10 @@ import java.security.SecureRandom
 import java.util.*
 import io.ktor.server.plugins.openapi.*
 import io.ktor.server.plugins.swagger.*
-import org.jetbrains.exposed.sql.javatime.* // Add this import
-import java.time.LocalDateTime // Add this import
+import org.jetbrains.exposed.sql.javatime.*
+import java.time.LocalDateTime
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
-import io.ktor.server.plugins.openapi.*
-import io.ktor.server.plugins.swagger.*
-//import io.swagger.v3.oas.models.OpenAPI
-//import io.swagger.v3.oas.models.info.Info
-//import io.swagger.v3.oas.models.servers.Server
-//import io.swagger.v3.oas.models.security.SecurityScheme
-import io.ktor.server.application.*
-import io.ktor.server.routing.*
-import io.ktor.server.plugins.openapi.*
-import io.ktor.server.plugins.swagger.*
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Info
 import io.swagger.v3.oas.models.servers.Server
@@ -50,7 +39,6 @@ fun main() {
 }
 
 fun Application.module() {
-
     configureSerialization()
     configureAuthentication()
     configureOpenAPI()
@@ -63,7 +51,6 @@ fun Application.configureSerialization() {
         json()
     }
 }
-
 
 fun Application.configureAuthentication() {
     val secret = System.getenv("JWT_SECRET") ?: "your-secret-key" // Use environment variable in production
@@ -96,7 +83,7 @@ fun Application.configureOpenAPI() {
 
 fun Application.configureRouting() {
     routing {
-        //always accessible routes
+        // Always accessible routes
         get("/") {
             call.respondText("Default endpoint from MyRent API.")
         }
@@ -113,12 +100,10 @@ fun Application.configureRouting() {
             }
         }
 
-        loginRoute() //auth routes
+        loginRoute() // Auth routes
         registerRoute()
-        authenticate { //routes accessible after register/login
-
+        authenticate { // Routes accessible after register/login
             vehicleRoutes()
-
         }
     }
 }
@@ -132,7 +117,7 @@ fun Application.configureDatabases() {
     )
 
     transaction(database) {
-        SchemaUtils.createMissingTablesAndColumns(Users, Vehicles, Photos)
+        SchemaUtils.createMissingTablesAndColumns(Users, Vehicles)
         exec("""
             DO $$ 
             BEGIN 
@@ -218,19 +203,6 @@ fun seedDatabase() {
             } get Vehicles.id
         }
 
-        // Seed Photos and update Vehicles
-        newVehicleIds.forEach { vehicleId ->
-            val photoId = Photos.insert {
-                it[photoUrl] = "https://example.com/vehicle${vehicleId}_${Random.nextInt(1000, 9999)}.jpg"
-                it[carId] = vehicleId
-                it[createdAt] = LocalDateTime.now()
-            } get Photos.id
-
-            Vehicles.update({ Vehicles.id eq vehicleId }) {
-                it[Vehicles.photoId] = photoId
-            }
-        }
-
         println("Added ${newUserIds.size} new users and ${newVehicleIds.size} new vehicles to the database.")
     }
 }
@@ -277,17 +249,8 @@ object Vehicles : Table("vehicles") {
     val brandstof = varchar("brandstof", 255)
     val verbruik = integer("verbruik")
     val kmStand = integer("km_stand")
-    val photoId = integer("photo_id").references(Photos.id).nullable()
+    val photoId = varchar("photo_id", 100000).nullable()  // Stores base64-encoded image
     val location = varchar("location", 255)
-    val createdAt = datetime("created_at").defaultExpression(CurrentDateTime)
-
-    override val primaryKey = PrimaryKey(id)
-}
-
-object Photos : Table("photos") {
-    val id = integer("id").autoIncrement()
-    val photoUrl = varchar("photo_url", 255)
-    val carId = integer("car_id").references(Vehicles.id)
     val createdAt = datetime("created_at").defaultExpression(CurrentDateTime)
 
     override val primaryKey = PrimaryKey(id)

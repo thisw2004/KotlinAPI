@@ -1,6 +1,5 @@
 package com.example.routes
 
-import com.example.Vehicles.rented
 import com.example.models.Vehicles
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -10,16 +9,8 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.sql.transactions.transaction
-import io.ktor.http.*
-import io.ktor.server.application.*
-import io.ktor.server.auth.*
-import io.ktor.server.auth.jwt.*
 import io.ktor.server.request.*
-import io.ktor.server.response.*
-import io.ktor.server.routing.*
 import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.transactions.transaction
 
 @Serializable
 data class VehicleResponse(
@@ -33,7 +24,7 @@ data class VehicleResponse(
     val brandstof: String,
     val verbruik: Int,
     val kmstand: Int,
-    val photoId: Int?,
+    val photoId: String?,
     val location: String
 )
 
@@ -46,22 +37,22 @@ data class AddCarRequest(
     val brandstof: String,
     val verbruik: Int,
     val kmstand: Int,
-    val photoId: Int?,
+    val photoId: String?,  // Server expects this exact field name
     val location: String
 )
+
 
 @Serializable
 data class HireCarRequest(
     val carId: Int
 )
 
-
 fun Route.vehicleRoutes() {
     getVehiclesRoute()
     getMyRentedVehiclesRoute()
     addCarRoute()
     hireCarRoute()
-
+    //getMyHiredVehiclesRoute()
 }
 
 fun Route.getVehiclesRoute() {
@@ -113,13 +104,11 @@ fun Route.getVehiclesRoute() {
     }
 }
 
-
-
 fun Route.getMyRentedVehiclesRoute() {
     authenticate {
         get("/vehicles/myrentedvehicles") {
             try {
-                call.application.log.info("Entering /vehicles/rented route")
+                call.application.log.info("Entering /vehicles/myrentedvehicles route")
 
                 val principal = call.principal<JWTPrincipal>()
                 val userId = principal?.getClaim("userId", String::class)?.toIntOrNull()
@@ -191,7 +180,7 @@ fun Route.addCarRoute() {
                         it[Vehicles.brandstof] = request.brandstof
                         it[Vehicles.verbruik] = request.verbruik
                         it[Vehicles.kmstand] = request.kmstand
-                        it[Vehicles.photoId] = request.photoId
+                        it[Vehicles.photoId] = request.photoId  // Inserting the base64-encoded image
                         it[Vehicles.location] = request.location
                     } get Vehicles.id
                 }
