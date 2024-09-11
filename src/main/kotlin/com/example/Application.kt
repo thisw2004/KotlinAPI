@@ -25,12 +25,15 @@ import io.ktor.server.plugins.openapi.*
 import io.ktor.server.plugins.swagger.*
 import org.jetbrains.exposed.sql.javatime.*
 import java.time.LocalDateTime
-import io.ktor.server.application.*
-import io.ktor.server.routing.*
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Info
 import io.swagger.v3.oas.models.servers.Server
 import io.swagger.v3.oas.models.security.SecurityScheme
+import java.awt.Color
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
+import javax.imageio.ImageIO
+import java.util.Base64
 
 fun main() {
     val port = System.getenv("PORT")?.toInt() ?: 8080
@@ -88,8 +91,11 @@ fun Application.configureRouting() {
             call.respondText("Default endpoint from MyRent API.")
         }
         get("/seed-database") {
+            val seedUsers = call.request.queryParameters["users"]?.toBoolean() ?: true
+            val seedVehicles = call.request.queryParameters["vehicles"]?.toBoolean() ?: true
+
             try {
-                seedDatabase()
+                seedDatabase(seedUsers, seedVehicles)
                 call.respondText("Database seeded successfully", status = HttpStatusCode.OK)
             } catch (e: Exception) {
                 application.log.error("Error seeding database", e)
@@ -149,7 +155,16 @@ fun testDatabaseConnection(database: Database) {
     }
 }
 
-fun seedDatabase() {
+fun seedDatabase(seedUsers: Boolean = true, seedVehicles: Boolean = true) {
+    if (seedUsers) {
+        seedUsers()
+    }
+    if (seedVehicles) {
+        seedVehicles()
+    }
+}
+
+fun seedUsers() {
     val names = listOf("Emma", "Liam", "Olivia", "Noah", "Ava", "Ethan", "Sophia", "Mason", "Isabella", "William",
         "Mia", "James", "Charlotte", "Benjamin", "Amelia", "Lucas", "Harper", "Henry", "Evelyn", "Alexander")
     val surnames = listOf("Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez",
@@ -157,8 +172,7 @@ fun seedDatabase() {
     val domains = listOf("gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com")
 
     transaction {
-        // Seed Users
-        val newUserIds = names.map { name ->
+        names.forEach { name ->
             val surname = surnames.random()
             var username: String
             var email: String
@@ -175,35 +189,65 @@ fun seedDatabase() {
                 it[password] = "$salt:$hash"
                 it[this.email] = email
                 it[createdAt] = LocalDateTime.now()
-            } get Users.id
+            }
         }
+        println("Users seeded successfully.")
+    }
+}
 
-        // Seed Vehicles
-        val vehicleBrands = listOf("Toyota", "Honda", "Ford", "BMW", "Mercedes", "Audi", "Volkswagen", "Nissan", "Hyundai", "Kia")
-        val vehicleModels = listOf("Sedan", "SUV", "Hatchback", "Coupe", "Convertible", "Pickup", "Van", "Wagon", "Crossover", "Sports Car")
+fun seedVehicles() {
+    val vehicleBrands = listOf("Toyota", "Honda", "Ford", "BMW", "Mercedes", "Audi", "Volkswagen", "Nissan", "Hyundai", "Kia")
+    val vehicleModels = listOf("Sedan", "SUV", "Hatchback", "Coupe", "Convertible", "Pickup", "Van", "Wagon", "Crossover", "Sports Car")
 
-        val newVehicleIds = List(30) {
+    transaction {
+        repeat(30) {
             var kenteken: String
             do {
                 kenteken = "${('A'..'Z').random()}${('A'..'Z').random()}${Random.nextInt(10, 99)}-${('A'..'Z').random()}${('A'..'Z').random()}${('A'..'Z').random()}"
             } while (Vehicles.select { Vehicles.kenteken eq kenteken }.count() > 0)
 
+            val photoId: String? = generateBase64Image() // This returns a Base64 string or null
+
             Vehicles.insert {
                 it[rented] = Random.nextBoolean()
-                it[userId] = newUserIds.random()
+                it[userId] = Users.slice(Users.id).selectAll().map { it[Users.id] }.random()
                 it[brand] = vehicleBrands.random()
                 it[model] = "${vehicleModels.random()} ${Random.nextInt(1, 5)}"
-                it[buildyear] = Random.nextInt(2010, 2024)
+                it[buildYear] = Random.nextInt(2010, 2024)  // Correct field reference
                 it[this.kenteken] = kenteken
                 it[brandstof] = listOf("Petrol", "Diesel", "Electric", "Hybrid").random()
                 it[verbruik] = Random.nextInt(3, 20)
-                it[kmStand] = Random.nextInt(0, 150000)
+                it[kmstand] = Random.nextInt(0, 150000)  // Correct field reference
+                it[this.photoId] = photoId  // Ensure this is a nullable String?
                 it[location] = listOf("Amsterdam", "Rotterdam", "The Hague", "Utrecht", "Eindhoven", "Groningen", "Tilburg", "Almere", "Breda", "Nijmegen").random()
                 it[createdAt] = LocalDateTime.now()
-            } get Vehicles.id
+            }
         }
+        println("Vehicles seeded successfully.")
+    }
+}
 
-        println("Added ${newUserIds.size} new users and ${newVehicleIds.size} new vehicles to the database.")
+fun generateBase64Image(): String? {
+    val width = 150
+    val height = 150
+    val image = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
+
+    // Generate a simple colored square image
+    val graphics = image.createGraphics()
+    graphics.color = Color(Random.nextInt(256), Random.nextInt(256), Random.nextInt(256))
+    graphics.fillRect(0, 0, width, height)
+    graphics.dispose()
+
+    val baos = ByteArrayOutputStream()
+    return try {
+        ImageIO.write(image, "png", baos)
+        baos.flush()
+        val imageBytes = baos.toByteArray()
+        Base64.getEncoder().encodeToString(imageBytes)
+    } catch (e: Exception) {
+        null // If something goes wrong, return null
+    } finally {
+        baos.close()
     }
 }
 
@@ -241,14 +285,14 @@ object Users : Table("users") {
 object Vehicles : Table("vehicles") {
     val id = integer("id").autoIncrement()
     val rented = bool("rented")
-    val userId = integer("user_id").references(Users.id)
+    val userId = integer("user_id").references(Users.id).nullable()  // Nullable user ID
     val brand = varchar("brand", 255)
     val model = varchar("model", 255)
-    val buildyear = integer("buildyear")
+    val buildYear = integer("buildyear")
     val kenteken = varchar("kenteken", 255)
     val brandstof = varchar("brandstof", 255)
     val verbruik = integer("verbruik")
-    val kmStand = integer("km_stand")
+    val kmstand = integer("km_stand")
     val photoId = varchar("photo_id", 100000).nullable()  // Stores base64-encoded image
     val location = varchar("location", 255)
     val createdAt = datetime("created_at").defaultExpression(CurrentDateTime)

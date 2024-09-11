@@ -53,6 +53,7 @@ fun Route.vehicleRoutes() {
     addCarRoute()
     hireCarRoute()
     getAvailableVehiclesRoute()
+    getVehicleByIdRoute()
     //getMyHiredVehiclesRoute()
 }
 
@@ -291,4 +292,51 @@ fun Route.getAvailableVehiclesRoute() {
         }
     }
 }
+
+@Serializable
+data class CarIdRequest(val carId: Int)
+
+fun Route.getVehicleByIdRoute() {
+    authenticate {
+        post("/vehicles/getbyid") {
+            try {
+                // Receive the car ID from the request body
+                val request = call.receive<CarIdRequest>()
+                val carId = request.carId
+
+                val vehicle = transaction {
+                    Vehicles.select { Vehicles.id eq carId }
+                        .mapNotNull { row ->
+                            VehicleResponse(
+                                id = row[Vehicles.id],
+                                rented = row[Vehicles.rented],
+                                userId = row[Vehicles.userId],
+                                brand = row[Vehicles.brand],
+                                model = row[Vehicles.model],
+                                buildYear = row[Vehicles.buildYear],
+                                kenteken = row[Vehicles.kenteken],
+                                brandstof = row[Vehicles.brandstof],
+                                verbruik = row[Vehicles.verbruik],
+                                kmstand = row[Vehicles.kmstand],
+                                photoId = row[Vehicles.photoId],
+                                location = row[Vehicles.location]
+                            )
+                        }
+                        .singleOrNull()
+                }
+
+                if (vehicle == null) {
+                    call.respond(HttpStatusCode.NotFound, "Car not found")
+                } else {
+                    call.respond(HttpStatusCode.OK, vehicle)
+                }
+            } catch (e: Exception) {
+                call.application.log.error("Error in get vehicle by ID route", e)
+                call.respond(HttpStatusCode.InternalServerError, "An error occurred while fetching the vehicle: ${e.message}")
+            }
+        }
+    }
+}
+
+
 
