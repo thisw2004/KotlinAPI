@@ -232,7 +232,7 @@ fun Route.hireCarRoute() {
                 when (result) {
                     "Car hired successfully" -> call.respond(HttpStatusCode.OK, mapOf("message" to result))
                     "Car not found" -> call.respond(HttpStatusCode.NotFound, mapOf("error" to result))
-                    "Car is already rented" -> call.respond(HttpStatusCode.Conflict, mapOf("error" to result))
+                    "Car is already hired" -> call.respond(HttpStatusCode.Conflict, mapOf("error" to result))
                     else -> call.respond(HttpStatusCode.InternalServerError, mapOf("error" to "An unexpected error occurred"))
                 }
 

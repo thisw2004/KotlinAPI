@@ -210,7 +210,7 @@ fun seedVehicles() {
 
             Vehicles.insert {
                 it[rented] = Random.nextBoolean()
-                it[userId] = Users.slice(Users.id).selectAll().map { it[Users.id] }.random()
+                it[userId] = null
                 it[brand] = vehicleBrands.random()
                 it[model] = "${vehicleModels.random()} ${Random.nextInt(1, 5)}"
                 it[buildYear] = Random.nextInt(2010, 2024)  // Correct field reference

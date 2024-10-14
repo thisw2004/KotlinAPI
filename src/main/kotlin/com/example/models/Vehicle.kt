@@ -5,7 +5,7 @@ import org.jetbrains.exposed.sql.*
 object Vehicles : Table("vehicles") {  // Explicitly naming the table "vehicles"
     val id = integer("id").autoIncrement()
     val rented = bool("rented")
-    val userId = integer("user_id").references(Users.id).nullable()  // Nullable user ID
+    val userId = integer("user_id").nullable()  // Nullable user ID
     val brand = varchar("brand", 255)
     val model = varchar("model", 255)
     val buildYear = integer("buildyear")
