@@ -238,7 +238,8 @@ fun Route.getAvailableVehiclesRoute() {
                 }
 
                 val availableVehicles = transaction {
-                    Vehicles.select { Vehicles.rented eq false }.map { row ->
+                    // Select vehicles where rented == false and userId == null
+                    Vehicles.select { (Vehicles.rented eq false) and (Vehicles.userId.isNull()) }.map { row ->
                         VehicleResponse(
                             id = row[Vehicles.id],
                             rented = row[Vehicles.rented],
@@ -263,6 +264,7 @@ fun Route.getAvailableVehiclesRoute() {
         }
     }
 }
+
 
 fun Route.getVehicleByIdRoute() {
     authenticate {

@@ -199,6 +199,20 @@ fun seedVehicles() {
     val vehicleBrands = listOf("Toyota", "Honda", "Ford", "BMW", "Mercedes", "Audi", "Volkswagen", "Nissan", "Hyundai", "Kia")
     val vehicleModels = listOf("Sedan", "SUV", "Hatchback", "Coupe", "Convertible", "Pickup", "Van", "Wagon", "Crossover", "Sports Car")
 
+    // List of real GPS coordinates (latitude, longitude)
+    val gpsCoordinates = listOf(
+        "52.3676,4.9041",   // Amsterdam, Netherlands
+        "48.8566,2.3522",   // Paris, France
+        "40.7128,-74.0060", // New York, USA
+        "34.0522,-118.2437", // Los Angeles, USA
+        "35.6895,139.6917",  // Tokyo, Japan
+        "51.5074,-0.1278",  // London, UK
+        "55.7558,37.6173",  // Moscow, Russia
+        "39.9042,116.4074", // Beijing, China
+        "19.4326,-99.1332", // Mexico City, Mexico
+        "28.6139,77.2090"   // New Delhi, India
+    )
+
     transaction {
         repeat(30) {
             var kenteken: String
@@ -208,25 +222,27 @@ fun seedVehicles() {
 
             val photoId: String? = generateBase64Image() // This returns a Base64 string or null
 
+            // Pick a random GPS coordinate
+            val location = gpsCoordinates.random()
+
             Vehicles.insert {
                 it[rented] = Random.nextBoolean()
                 it[userId] = null
                 it[brand] = vehicleBrands.random()
                 it[model] = "${vehicleModels.random()} ${Random.nextInt(1, 5)}"
-                it[buildYear] = Random.nextInt(2010, 2024)  // Correct field reference
+                it[buildYear] = Random.nextInt(2010, 2024)
                 it[this.kenteken] = kenteken
                 it[brandstof] = listOf("Petrol", "Diesel", "Electric", "Hybrid").random()
                 it[verbruik] = Random.nextInt(3, 20)
-                it[kmstand] = Random.nextInt(0, 150000)  // Correct field reference
-                it[this.photoId] = photoId  // Ensure this is a nullable String?
-                it[location] = listOf("Amsterdam", "Rotterdam", "The Hague", "Utrecht", "Eindhoven", "Groningen", "Tilburg", "Almere", "Breda", "Nijmegen").random()
+                it[kmstand] = Random.nextInt(0, 150000)
+                it[this.photoId] = photoId
+                it[this.location] = location  // Use real GPS coordinates
                 it[createdAt] = LocalDateTime.now()
             }
         }
-        println("Vehicles seeded successfully.")
+        println("Vehicles seeded successfully!")
     }
 }
-
 fun generateBase64Image(): String? {
     val width = 150
     val height = 150
