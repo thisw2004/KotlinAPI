@@ -14,6 +14,6 @@ fun Application.configureDatabases() {
     )
 
     transaction(database) {
-        SchemaUtils.create(Users, Vehicles, Routes, Photos, DrivingBehaviors)
+        SchemaUtils.create(Users, Vehicles)
     }
 }
